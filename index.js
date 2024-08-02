@@ -10,10 +10,10 @@ const app = express();
 app.use(express.json());
 
 connectDb();
+app.use("/api", emailRoutes);
 app.get("/", (req, res) => {
   res.send("Email Schdeuler by Vraj!");
 });
-app.use("/api", emailRoutes);
 
 app.use(errorHandler);
 
