@@ -1,11 +1,12 @@
 import { ScheduledEmail } from "../models/ScheduledEmail.js";
 import cron from "node-cron";
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+  service: "gmail",
   port: 587,
-  //   secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -37,7 +38,6 @@ export const scheduleEmail = async (req, res) => {
   let { recipient, subject, body, scheduleTime, recurring, attachments } =
     req.body;
 
-  // If scheduleTime is 'now', set it to the current date and time
   const actualScheduleTime =
     scheduleTime === "now"
       ? new Date().toISOString()
@@ -54,6 +54,8 @@ export const scheduleEmail = async (req, res) => {
   });
 
   await email.save();
+  console.log("Email saved:", email);
+
   scheduleEmailJob(email);
   res.status(201).send(email);
   console.log("Email scheduled:", email);
@@ -79,11 +81,20 @@ export const deleteScheduledEmail = async (req, res) => {
 
 const scheduleEmailJob = (email) => {
   const { scheduleTime, recurring } = email;
+  const currentTime = new Date();
+
+  console.log(
+    "Scheduling email at:",
+    scheduleTime,
+    "Current time:",
+    currentTime
+  );
 
   if (scheduleTime === "now") {
     sendEmail(email);
-  } else if (new Date(scheduleTime) > new Date()) {
-    const delay = new Date(scheduleTime) - new Date();
+  } else if (new Date(scheduleTime) > currentTime) {
+    const delay = new Date(scheduleTime) - currentTime;
+    console.log(`Email will be sent in ${delay} milliseconds`);
     setTimeout(() => {
       sendEmail(email);
       if (recurring !== "none") {
@@ -91,6 +102,7 @@ const scheduleEmailJob = (email) => {
       }
     }, delay);
   } else if (cron.validate(scheduleTime)) {
+    console.log(`Scheduling email with cron expression: ${scheduleTime}`);
     cron.schedule(scheduleTime, () => {
       sendEmail(email);
       if (recurring !== "none") {
@@ -144,6 +156,8 @@ const sendEmail = (email) => {
     text: body,
     attachments,
   };
+
+  console.log("Sending email with options:", mailOptions);
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {

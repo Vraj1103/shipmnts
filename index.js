@@ -5,7 +5,6 @@ import emailRoutes from "./routes/emailRoutes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 
 config();
-
 const app = express();
 
 app.use(express.json());
