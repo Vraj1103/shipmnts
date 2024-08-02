@@ -3,6 +3,8 @@ import { connectDb } from "./utils/connectDb.js";
 import { config } from "dotenv";
 import emailRoutes from "./routes/emailRoutes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import cors from "cors";
+
 
 config();
 
@@ -16,6 +18,7 @@ app.use("/api", emailRoutes);
 app.get("/", (req, res) => {
   res.send("Email Schdeuler by Vraj!");
 });
+app.use(cors());
 
 app.use(errorHandler);
 
