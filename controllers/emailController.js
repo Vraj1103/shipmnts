@@ -2,11 +2,12 @@ import { ScheduledEmail } from "../models/ScheduledEmail.js";
 import cron from "node-cron";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
+import schedule from "node-schedule";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  port: 587,
+  host: "smtp.gmail.com",
+  // port: 587,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -79,9 +80,44 @@ export const deleteScheduledEmail = async (req, res) => {
   res.send(email);
 };
 
+// const scheduleEmailJob = (email) => {
+//   const { scheduleTime, recurring } = email;
+//   const currentTime = new Date();
+
+//   console.log(
+//     "Scheduling email at:",
+//     scheduleTime,
+//     "Current time:",
+//     currentTime
+//   );
+
+//   if (scheduleTime === "now") {
+//     sendEmail(email);
+//   } else if (new Date(scheduleTime) > currentTime) {
+//     const delay = new Date(scheduleTime) - currentTime;
+//     console.log(`Email will be sent in ${delay} milliseconds`);
+//     setTimeout(() => {
+//       sendEmail(email);
+//       if (recurring !== "none") {
+//         rescheduleEmail(email);
+//       }
+//     }, delay);
+//   } else if (cron.validate(scheduleTime)) {
+//     console.log(`Scheduling email with cron expression: ${scheduleTime}`);
+//     cron.schedule(scheduleTime, () => {
+//       sendEmail(email);
+//       if (recurring !== "none") {
+//         rescheduleEmail(email);
+//       }
+//     });
+//   } else {
+//     console.error("Invalid cron expression or date:", scheduleTime);
+//   }
+// };
+
 const scheduleEmailJob = (email) => {
-  const { scheduleTime, recurring } = email;
   const currentTime = new Date();
+  const scheduleTime = new Date(email.scheduleTime);
 
   console.log(
     "Scheduling email at:",
@@ -90,27 +126,21 @@ const scheduleEmailJob = (email) => {
     currentTime
   );
 
-  if (scheduleTime === "now") {
+  if (scheduleTime <= currentTime) {
     sendEmail(email);
-  } else if (new Date(scheduleTime) > currentTime) {
-    const delay = new Date(scheduleTime) - currentTime;
-    console.log(`Email will be sent in ${delay} milliseconds`);
-    setTimeout(() => {
+    if (email.recurring !== "none") {
+      rescheduleEmail(email);
+    }
+  } else {
+    const job = schedule.scheduleJob(scheduleTime, () => {
       sendEmail(email);
-      if (recurring !== "none") {
-        rescheduleEmail(email);
-      }
-    }, delay);
-  } else if (cron.validate(scheduleTime)) {
-    console.log(`Scheduling email with cron expression: ${scheduleTime}`);
-    cron.schedule(scheduleTime, () => {
-      sendEmail(email);
-      if (recurring !== "none") {
+      if (email.recurring !== "none") {
         rescheduleEmail(email);
       }
     });
-  } else {
-    console.error("Invalid cron expression or date:", scheduleTime);
+
+    email.jobId = job.id;
+    email.save();
   }
 };
 
@@ -148,22 +178,26 @@ const rescheduleEmail = (email) => {
 };
 
 const sendEmail = (email) => {
-  const { recipient, subject, body, attachments } = email;
+  console.log(email);
+  const {
+    recipient,
+    subject,
+    body,
+    // attachments
+  } = email;
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    // from: process.env.EMAIL_USER,
     to: recipient,
     subject,
     text: body,
-    attachments,
+    // attachments,
   };
 
   console.log("Sending email with options:", mailOptions);
 
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error("Error sending email:", error);
-    } else {
-      console.log("Email sent:", info.response);
-    }
-  });
+  try {
+    transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
 };
